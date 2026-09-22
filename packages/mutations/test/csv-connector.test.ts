@@ -613,3 +613,119 @@ describe('CsvConnector: local-edit guard (mutation-guard.ts)', () => {
     expect(view.getPropertyValue(1, 'Pset_WallCommon', 'FireRating')).toBe(60);
   });
 });
+
+describe('CsvConnector.match: tombstoned entities are excluded (#5198)', () => {
+  // Mirrors BulkQueryEngine's tombstone-enumeration fix (fix-5196-bulk-query-tombstone):
+  // deletion is overlay-only, so matchRow's raw EntityTable enumeration must
+  // consult the mutation view's tombstones itself, for all three strategies.
+
+  it('globalId strategy excludes a tombstoned entity from the match', () => {
+    const { connector, view } = makeConnector([
+      { expressId: 1, globalId: 'guid-a', name: 'Wall A' },
+    ]);
+    view.deleteEntity(1);
+
+    const mapping: DataMapping = {
+      matchStrategy: { type: 'globalId', column: 'GlobalId' },
+      propertyMappings: [],
+    };
+
+    const [result] = connector.match([{ GlobalId: 'guid-a' }], mapping);
+
+    expect(result.matchedEntityIds).toEqual([]);
+  });
+
+  it('expressId strategy excludes a tombstoned entity from the match', () => {
+    const { connector, view } = makeConnector([
+      { expressId: 42, globalId: 'guid-a', name: 'Wall A' },
+    ]);
+    view.deleteEntity(42);
+
+    const mapping: DataMapping = {
+      matchStrategy: { type: 'expressId', column: 'Id' },
+      propertyMappings: [],
+    };
+
+    const [result] = connector.match([{ Id: '42' }], mapping);
+
+    expect(result.matchedEntityIds).toEqual([]);
+  });
+
+  it('name strategy excludes a tombstoned entity from the match', () => {
+    const { connector, view } = makeConnector([
+      { expressId: 5, globalId: 'guid-a', name: 'Wall Alpha' },
+    ]);
+    view.deleteEntity(5);
+
+    const mapping: DataMapping = {
+      matchStrategy: { type: 'name', column: 'Name' },
+      propertyMappings: [],
+    };
+
+    const [result] = connector.match([{ Name: 'wall alpha' }], mapping);
+
+    expect(result.matchedEntityIds).toEqual([]);
+  });
+
+  it('live entities of every strategy still match and still get mutations, unaffected by the filter (no-regression)', () => {
+    const { connector, view } = makeConnector([
+      { expressId: 1, globalId: 'guid-a', name: 'Wall Alpha' },
+      { expressId: 2, globalId: 'guid-b', name: 'Wall Beta' },
+      { expressId: 3, globalId: 'guid-c', name: 'Wall Gamma' },
+    ]);
+
+    const byGlobalId: DataMapping = {
+      matchStrategy: { type: 'globalId', column: 'GlobalId' },
+      propertyMappings: [],
+    };
+    const byExpressId: DataMapping = {
+      matchStrategy: { type: 'expressId', column: 'Id' },
+      propertyMappings: [],
+    };
+    const byName: DataMapping = {
+      matchStrategy: { type: 'name', column: 'Name' },
+      propertyMappings: [],
+    };
+
+    expect(connector.match([{ GlobalId: 'guid-a' }], byGlobalId)[0].matchedEntityIds).toEqual([1]);
+    expect(connector.match([{ Id: '2' }], byExpressId)[0].matchedEntityIds).toEqual([2]);
+    expect(connector.match([{ Name: 'wall gamma' }], byName)[0].matchedEntityIds).toEqual([3]);
+    expect(view.isDeleted(1)).toBe(false);
+    expect(view.isDeleted(2)).toBe(false);
+    expect(view.isDeleted(3)).toBe(false);
+  });
+
+  it('full arc: match -> generateMutations -> value while deleted -> restoreFromTombstone -> the stale write is NOT there', () => {
+    const { connector, view } = makeConnector([
+      { expressId: 1, globalId: 'guid-a', name: 'Wall A' },
+    ]);
+    view.deleteEntity(1);
+    expect(view.isDeleted(1)).toBe(true);
+
+    const mapping: DataMapping = {
+      matchStrategy: { type: 'globalId', column: 'GlobalId' },
+      propertyMappings: [
+        {
+          sourceColumn: 'FireRating',
+          targetPset: 'Pset_WallCommon',
+          targetProperty: 'FireRating',
+          valueType: PropertyValueType.Label,
+        },
+      ],
+    };
+
+    const matches = connector.match([{ GlobalId: 'guid-a', FireRating: 'STALE_VIA_CSV' }], mapping);
+    const mutations = connector.generateMutations(matches, mapping);
+
+    expect(mutations).toHaveLength(0);
+    expect(view.getPropertyValue(1, 'Pset_WallCommon', 'FireRating')).toBeNull();
+
+    const restored = view.restoreFromTombstone(1);
+    expect(restored).toBe(true);
+    expect(view.isDeleted(1)).toBe(false);
+
+    // The critical assertion: undoing the delete must not resurrect a write
+    // that happened while the entity was tombstoned.
+    expect(view.getPropertyValue(1, 'Pset_WallCommon', 'FireRating')).toBeNull();
+  });
+});

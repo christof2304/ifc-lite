@@ -201,8 +201,14 @@ export class CsvConnector {
         for (let i = 0; i < this.entities.count; i++) {
           const globalIdIdx = this.entities.globalId[i];
           const globalId = this.strings?.get(globalIdIdx) || '';
-          if (globalId === matchValue) {
-            matchedEntityIds.push(this.entities.expressId[i]);
+          const entityId = this.entities.expressId[i];
+          // Deletion is overlay-only (a tombstone), never written back to this
+          // base EntityTable, so a deleted entity is otherwise indistinguishable
+          // from a live one here. Filtering at enumeration — rather than in
+          // generateMutations — means a future match strategy can't reintroduce
+          // this (#5198).
+          if (globalId === matchValue && !this.mutationView.isDeleted(entityId)) {
+            matchedEntityIds.push(entityId);
           }
         }
         break;
@@ -212,7 +218,8 @@ export class CsvConnector {
         const expressId = parseInt(matchValue, 10);
         if (!isNaN(expressId)) {
           for (let i = 0; i < this.entities.count; i++) {
-            if (this.entities.expressId[i] === expressId) {
+            // See the matching comment in the `globalId` case above (#5198).
+            if (this.entities.expressId[i] === expressId && !this.mutationView.isDeleted(expressId)) {
               matchedEntityIds.push(expressId);
               break;
             }
@@ -228,8 +235,10 @@ export class CsvConnector {
         for (let i = 0; i < this.entities.count; i++) {
           const nameIdx = this.entities.name[i];
           const name = (this.strings?.get(nameIdx) || '').toLowerCase();
-          if (name === searchName) {
-            matchedEntityIds.push(this.entities.expressId[i]);
+          const entityId = this.entities.expressId[i];
+          // See the matching comment in the `globalId` case above (#5198).
+          if (name === searchName && !this.mutationView.isDeleted(entityId)) {
+            matchedEntityIds.push(entityId);
           }
         }
         break;
