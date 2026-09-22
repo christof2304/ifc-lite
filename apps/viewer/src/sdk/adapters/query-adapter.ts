@@ -206,6 +206,8 @@ export function createQueryAdapter(store: StoreApi): QueryBackendMethods {
     for (const [modelId, model] of modelEntries) {
       if (!model?.ifcDataStore) continue;
 
+      const view = getMutationViewForModel(store, modelId);
+
       let entityIds: number[];
       if (descriptor.types && descriptor.types.length > 0) {
         // Expand types to every schema-declared descendant (IfcWall →
@@ -231,6 +233,9 @@ export function createQueryAdapter(store: StoreApi): QueryBackendMethods {
       }
       for (const expressId of entityIds) {
         if (expressId === 0) continue;
+        // Tombstoned this session — matches `entityData`/`related` above and
+        // the CLI/MCP siblings' `isDeleted` check (#5205).
+        if (view?.isDeleted(expressId)) continue;
         const node = new EntityNode(model.ifcDataStore, expressId);
         results.push(applyAttributeMutationsToEntityData(store, modelId, expressId, {
           ref: { modelId, expressId },
