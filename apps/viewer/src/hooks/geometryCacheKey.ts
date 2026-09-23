@@ -9,8 +9,11 @@ import { FORMAT_VERSION } from '@ifc-lite/cache';
 // RTC gate's un-rebased meshes and `needsShift: false` frame; bumping this
 // forces a re-tessellate so the corrected pre-pass output actually runs on
 // reload rather than being served from a cache built against the old gate.
+// IFC4x3 alignments: sectioned solids with IfcAxis2PlacementLinear positions,
+// gradient-curve elevation and dense arc/clothoid sampling changed the meshes of
+// alignment-based models (bridges were cached ~55 m low with no superstructure).
 // Invalidate viewer-generated geometry without changing the public cache format.
-const GEOMETRY_OUTPUT_REVISION = 2;
+const GEOMETRY_OUTPUT_REVISION = 3;
 
 /**
  * Build the persisted geometry cache key for a loaded model.
