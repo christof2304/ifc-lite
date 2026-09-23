@@ -6,11 +6,13 @@
  * Section plane controls panel
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { X, Slice, ChevronDown, FileImage, FlipHorizontal2, MousePointerClick, RotateCcw, GripVertical } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { X, Slice, ChevronDown, FileImage, FlipHorizontal2, MousePointerClick, RotateCcw, GripVertical, Spline } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useViewerStore, loadLastSectionMode } from '@/store';
 import { useDraggablePanel } from '@/hooks/useDraggablePanel';
+import { useAlignmentLines3D } from '@/hooks/useAlignmentLines3D';
+import { alignmentPathLength, sampleAlignmentStation } from '@/lib/alignment/alignment-station';
 import { tourAnchor, TOUR_ANCHORS } from '@/lib/tours/anchors';
 import { AXIS_INFO } from './sectionConstants';
 import { SectionPlaneVisualization } from './SectionVisualization';
@@ -28,6 +30,7 @@ export function SectionOverlay() {
   const sectionPickMode = useViewerStore((s) => s.sectionPickMode);
   const setSectionPickMode = useViewerStore((s) => s.setSectionPickMode);
   const setSectionCustomDistance = useViewerStore((s) => s.setSectionCustomDistance);
+  const setSectionPlaneFromFace = useViewerStore((s) => s.setSectionPlaneFromFace);
   const setPreviewStride = useViewerStore((s) => s.setPointCloudPreviewStride);
   const pointCloudAssetCount = useViewerStore((s) => s.pointCloudAssetCount);
   const setActiveTool = useViewerStore((s) => s.setActiveTool);
@@ -37,11 +40,44 @@ export function SectionOverlay() {
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(true);
   const isCustom = sectionPlane.custom !== undefined;
 
+  // Cross-sections perpendicular to an IfcAlignment centerline (e.g. a
+  // curved bridge axis), sampled from the same line-list buffer the 3D
+  // alignment overlay already renders — see alignment-station.ts.
+  const alignmentVerts = useAlignmentLines3D();
+  const alignmentLength = useMemo(() => alignmentPathLength(alignmentVerts), [alignmentVerts]);
+  const hasAlignment = alignmentLength > 1e-6;
+  const [alignmentPickOpen, setAlignmentPickOpen] = useState(false);
+  const [station, setStation] = useState(0);
+
+  const applyStation = useCallback((distance: number) => {
+    const clamped = Math.min(Math.max(distance, 0), alignmentLength);
+    const sample = sampleAlignmentStation(alignmentVerts, clamped);
+    if (!sample) return;
+    setStation(clamped);
+    setSectionPlaneFromFace(sample.tangent, sample.point);
+  }, [alignmentVerts, alignmentLength, setSectionPlaneFromFace]);
+
+  const handleToggleAlignmentPick = useCallback(() => {
+    if (alignmentPickOpen) {
+      setAlignmentPickOpen(false);
+      return;
+    }
+    setSectionPickMode(false);
+    setAlignmentPickOpen(true);
+    applyStation(alignmentLength / 2);
+  }, [alignmentPickOpen, alignmentLength, applyStation, setSectionPickMode]);
+
+  const handleStationChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(e.target.value);
+    if (Number.isFinite(value)) applyStation(value);
+  }, [applyStation]);
+
   const handleClose = useCallback(() => {
     setActiveTool('select');
   }, [setActiveTool]);
 
   const handleAxisChange = useCallback((axis: 'down' | 'front' | 'side') => {
+    setAlignmentPickOpen(false);
     setSectionPlaneAxis(axis);
   }, [setSectionPlaneAxis]);
 
@@ -49,6 +85,7 @@ export function SectionOverlay() {
   // intercepted in `selectionHandlers.ts`, which calls
   // `setSectionPlaneFromFace` and clears pick mode for us. (issue #243)
   const handleTogglePickMode = useCallback(() => {
+    setAlignmentPickOpen(false);
     setSectionPickMode(!sectionPickMode);
   }, [sectionPickMode, setSectionPickMode]);
 
@@ -57,6 +94,7 @@ export function SectionOverlay() {
   // the nearest cardinal that's already in `axis` (kept in sync at pick
   // time) so the user lands on the closest preset they had before.
   const handleResetToAxis = useCallback(() => {
+    setAlignmentPickOpen(false);
     setSectionPlaneAxis(sectionPlane.axis);
   }, [sectionPlane.axis, setSectionPlaneAxis]);
 
@@ -206,23 +244,69 @@ export function SectionOverlay() {
                 demoted to a secondary row below for power users who want
                 an axis-aligned cut without picking a surface. */}
             <div className="mt-3">
-              <Button
-                variant={sectionPickMode || isCustom ? 'default' : 'outline'}
-                size="sm"
-                className="w-full flex-col h-auto py-1.5"
-                onClick={handleTogglePickMode}
-                aria-pressed={sectionPickMode}
-                title={
-                  sectionPickMode
-                    ? t('sectionTool.pick.activeTitle')
-                    : t('sectionTool.pick.title')
-                }
-              >
-                <span className="text-xs font-medium flex items-center gap-1">
-                  <MousePointerClick className="h-3 w-3" />
-                  {sectionPickMode ? t('sectionTool.pick.activeLabel') : isCustom ? t('sectionTool.pick.customLabel') : t('sectionTool.pick.label')}
-                </span>
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  variant={sectionPickMode || (isCustom && !alignmentPickOpen) ? 'default' : 'outline'}
+                  size="sm"
+                  className="flex-1 flex-col h-auto py-1.5"
+                  onClick={handleTogglePickMode}
+                  aria-pressed={sectionPickMode}
+                  title={
+                    sectionPickMode
+                      ? t('sectionTool.pick.activeTitle')
+                      : t('sectionTool.pick.title')
+                  }
+                >
+                  <span className="text-xs font-medium flex items-center gap-1">
+                    <MousePointerClick className="h-3 w-3" />
+                    {sectionPickMode ? t('sectionTool.pick.activeLabel') : isCustom && !alignmentPickOpen ? t('sectionTool.pick.customLabel') : t('sectionTool.pick.label')}
+                  </span>
+                </Button>
+                {hasAlignment && (
+                  <Button
+                    variant={alignmentPickOpen ? 'default' : 'outline'}
+                    size="sm"
+                    className="flex-1 flex-col h-auto py-1.5"
+                    onClick={handleToggleAlignmentPick}
+                    aria-pressed={alignmentPickOpen}
+                    title={alignmentPickOpen ? t('sectionTool.alignment.activeTitle') : t('sectionTool.alignment.title')}
+                  >
+                    <span className="text-xs font-medium flex items-center gap-1">
+                      <Spline className="h-3 w-3" />
+                      {t('sectionTool.alignment.label')}
+                    </span>
+                  </Button>
+                )}
+              </div>
+              {alignmentPickOpen && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {t('sectionTool.alignment.stationLabel')}
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max={alignmentLength}
+                      step="0.1"
+                      value={station.toFixed(1)}
+                      onChange={handleStationChange}
+                      aria-label={t('sectionTool.alignment.stationAriaLabel')}
+                      className="w-20 text-xs font-mono bg-muted px-1.5 py-0.5 rounded border-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max={alignmentLength}
+                    step="0.1"
+                    value={station}
+                    onChange={handleStationChange}
+                    aria-label={t('sectionTool.alignment.sliderAriaLabel')}
+                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                </div>
+              )}
               <div className="mt-2 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t('sectionTool.axisPrompt')}</div>
               <div className="flex gap-1">
                 {(['down', 'front', 'side'] as const).map((axis) => (
