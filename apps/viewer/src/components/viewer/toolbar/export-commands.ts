@@ -29,6 +29,7 @@ import { ExportDialog } from '../ExportDialog';
 import { AnonymizedExportDialog } from '../anonymized-export/AnonymizedExportDialog';
 import { GLBExportDialog } from '../GLBExportDialog';
 import { KmzExportDialog } from '../KmzExportDialog';
+import { CesiumIonExportDialog } from '../CesiumIonExportDialog';
 import { EnergyModelExportDialog } from '../EnergyModelExportDialog';
 import { UsdExportDialog } from '../UsdExportDialog';
 import { PdfViewExportDialog } from '../PdfViewExportDialog';
@@ -154,6 +155,17 @@ export const EXPORT_COMMANDS = [
     menuLabelKey: 'exportCommands.kmz.menuLabel',
     tooltipKey: 'exportCommands.kmz.tooltip',
     requires: 'model',
+    group: 1,
+    emphasis: 'small',
+  },
+  {
+    id: 'cesiumIon',
+    kind: 'dialog',
+    Dialog: CesiumIonExportDialog,
+    labelKey: 'exportCommands.cesiumIon.label',
+    menuLabelKey: 'exportCommands.cesiumIon.menuLabel',
+    tooltipKey: 'exportCommands.cesiumIon.tooltip',
+    requires: 'dataStore',
     group: 1,
     emphasis: 'small',
   },

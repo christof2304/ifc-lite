@@ -12,7 +12,7 @@
  * lets the node test runner render that component.
  */
 
-import { FileCsv, FileGlb, FileHbjson, FileIfc, FileJson, FileKmz, FilePdf, FileUsd, HideSelected, Screenshot } from '@/icons';
+import { CloudSources, FileCsv, FileGlb, FileHbjson, FileIfc, FileJson, FileKmz, FilePdf, FileUsd, HideSelected, Screenshot } from '@/icons';
 import type { ExportIconSet } from '../../toolbar/export-commands';
 
 export const RIBBON_EXPORT_ICONS: ExportIconSet = {
@@ -23,6 +23,10 @@ export const RIBBON_EXPORT_ICONS: ExportIconSet = {
   anonymized: HideSelected,
   glb: FileGlb,
   kmz: FileKmz,
+  // Same reuse-over-new-SVG rationale as `anonymized` above — no dedicated
+  // Cesium/cloud-upload glyph exists, and this already reads as "push to a
+  // cloud service" elsewhere (DataConnector).
+  cesiumIon: CloudSources,
   usd: FileUsd,
   energy: FileHbjson,
   csv: FileCsv,

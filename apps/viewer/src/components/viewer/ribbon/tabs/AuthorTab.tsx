@@ -16,6 +16,7 @@ import { useIfc } from '@/hooks/useIfc';
 import { useTranslation } from '@/i18n';
 import { tourAnchor, toolAnchor } from '@/lib/tours/anchors';
 import { BulkPropertyEditor } from '../../BulkPropertyEditor';
+import { SetStagePanel } from '../../SetStagePanel';
 import { DataConnector } from '../../DataConnector';
 import { useWorkspacePanelControls } from '../../toolbar/useWorkspacePanelControls';
 import {
@@ -131,6 +132,15 @@ export function AuthorTab() {
               <RibbonSmallButton
                 icon={EditProperty}
                 label={t('ribbon.author.bulkPropertyEditor')}
+                disabled={!ifcDataStore}
+              />
+            }
+          />
+          <SetStagePanel
+            trigger={
+              <RibbonSmallButton
+                icon={EditProperty}
+                label="Stage setzen (CESIUM)"
                 disabled={!ifcDataStore}
               />
             }

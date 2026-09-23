@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { Camera, Download, EyeOff, FileJson, FileSpreadsheet, FileText, Globe2 } from 'lucide-react';
+import { Camera, CloudUpload, Download, EyeOff, FileJson, FileSpreadsheet, FileText, Globe2 } from 'lucide-react';
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -27,6 +27,7 @@ export const CLASSIC_EXPORT_ICONS: ExportIconSet = {
   anonymized: EyeOff,
   glb: Download,
   kmz: Globe2,
+  cesiumIon: CloudUpload,
   usd: Download,
   energy: Download,
   csv: FileSpreadsheet,

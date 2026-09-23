@@ -67,6 +67,7 @@ import { useIfc } from '@/hooks/useIfc';
 import { cn } from '@/lib/utils';
 import { Filter, Upload, Pencil, DraftingCompass, Box, Cloud, FileWarning, Coins } from 'lucide-react';
 import { BulkPropertyEditor } from './BulkPropertyEditor';
+import { SetStagePanel } from './SetStagePanel';
 import { DataConnector } from './DataConnector';
 import { ExportChangesButton } from './ExportChangesButton';
 import { isCollabEnabled } from '@/lib/collab/config';
@@ -468,6 +469,14 @@ export function MainToolbar({ onShowShortcuts }: MainToolbarProps = {} as MainTo
               <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                 <Filter className="h-4 w-4 mr-2" />
                 {t('mainToolbar.bulkPropertyEditor')}
+              </DropdownMenuItem>
+            }
+          />
+          <SetStagePanel
+            trigger={
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <Layers className="h-4 w-4 mr-2" />
+                Stage setzen (CESIUM)
               </DropdownMenuItem>
             }
           />

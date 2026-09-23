@@ -54,6 +54,16 @@ export interface CesiumSlice {
   cesiumCustomTilesetUrl: string | null;
   /** Resolved Cesium ion access token (user override or build-time default). */
   cesiumIonToken: string;
+  /**
+   * Cesium ion **asset-write** token (`assets:write` scope), used only by the
+   * "Push to Cesium Ion" export dialog to create/upload assets. Deliberately
+   * separate from {@link cesiumIonToken} (viewing-only, has a build-time
+   * default): this one can create and delete real, billable assets in the
+   * user's ion account, so it must never fall back to a build-time default
+   * and must never be read as a substitute for the viewing token or vice
+   * versa. Empty string when unset — no default.
+   */
+  cesiumIonWriteToken: string;
   /** Terrain enabled (Cesium World Terrain). */
   cesiumTerrainEnabled: boolean;
   /** Terrain height at model position (queried from Cesium, meters). null = not yet queried. */
@@ -120,6 +130,8 @@ export interface CesiumSlice {
   /** Save (or clear, with `null`) the custom 3D Tiles URL. Persists per browser. */
   setCesiumCustomTilesetUrl: (url: string | null) => void;
   setCesiumIonToken: (token: string) => void;
+  /** Set (or clear, with `''`) the asset-write ion token. See {@link CesiumSlice.cesiumIonWriteToken}. */
+  setCesiumIonWriteToken: (token: string) => void;
   setCesiumTerrainEnabled: (enabled: boolean) => void;
   setCesiumTerrainHeight: (height: number | null) => void;
   setCesiumTerrainSource: (source: string | null) => void;
@@ -142,6 +154,8 @@ export interface CesiumSlice {
 }
 
 const STORAGE_KEY_ION_TOKEN = 'ifc-lite:cesium-ion-token';
+/** Separate storage key from {@link STORAGE_KEY_ION_TOKEN} — see `cesiumIonWriteToken`'s doc comment. */
+const STORAGE_KEY_ION_WRITE_TOKEN = 'ifc-lite:cesium-ion-write-token';
 const STORAGE_KEY_DATA_SOURCE = 'ifc-lite:cesium-data-source';
 /**
  * The custom XYZ basemap is stored **per browser**, alongside the ion token and
@@ -240,6 +254,7 @@ export const createCesiumSlice: StateCreator<CesiumSlice & CesiumCrossSliceState
   cesiumCustomBasemap: loadCustomBasemap(),
   cesiumCustomTilesetUrl: loadCustomTilesetUrl(),
   cesiumIonToken: resolveIonToken(),
+  cesiumIonWriteToken: loadFromStorage(STORAGE_KEY_ION_WRITE_TOKEN, ''),
   cesiumTerrainEnabled: true,
   cesiumTerrainHeight: null,
   cesiumTerrainSource: null,
@@ -325,6 +340,10 @@ export const createCesiumSlice: StateCreator<CesiumSlice & CesiumCrossSliceState
       cesiumTerrainSaveHeight: null,
       cesiumTerrainClipY: null,
     });
+  },
+  setCesiumIonWriteToken: (token) => {
+    saveToStorage(STORAGE_KEY_ION_WRITE_TOKEN, token);
+    set({ cesiumIonWriteToken: token });
   },
   setCesiumTerrainEnabled: (enabled) => {
     clearTerrainElevationCache();

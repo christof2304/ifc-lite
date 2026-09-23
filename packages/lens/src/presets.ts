@@ -70,6 +70,16 @@ export const BUILTIN_LENSES: readonly Lens[] = [
     rules: [],
     autoColor: { source: 'model' },
   },
+  // Auto-color by the CESIUM.Stage property — SetStagePanel's UI counterpart
+  // tags selections with Pset "CESIUM" / property "Stage"; this lens gives
+  // that data an immediate visual (one color per distinct stage value).
+  {
+    id: 'lens-by-stage',
+    name: 'By Stage',
+    builtin: true,
+    rules: [],
+    autoColor: { source: 'property', psetName: 'CESIUM', propertyName: 'Stage' },
+  },
   // Auto-color by IfcZone / IfcGroup membership — one colour per zone, so
   // spaces grouped into a dwelling / house number / fire compartment read as a
   // set (#1075). Entities in no group are ghosted.

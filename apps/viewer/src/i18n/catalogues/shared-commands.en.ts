@@ -37,6 +37,10 @@ export const sharedCommandsEn = {
   'exportCommands.kmz.menuLabel': 'Export KMZ (Google Earth Pro)',
   'exportCommands.kmz.tooltip': 'Export KMZ (Google Earth Pro)',
 
+  'exportCommands.cesiumIon.label': 'Cesium Ion',
+  'exportCommands.cesiumIon.menuLabel': 'Push to Cesium Ion',
+  'exportCommands.cesiumIon.tooltip': 'Upload the IFC file to Cesium Ion for 3D Tiles',
+
   'exportCommands.usd.label': 'USD',
   'exportCommands.usd.menuLabel': 'Export USD (OpenUSD)',
   'exportCommands.usd.tooltip': 'Export USD (OpenUSD .usda)',
