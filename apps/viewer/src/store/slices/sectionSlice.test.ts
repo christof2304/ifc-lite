@@ -896,3 +896,40 @@ describe('SectionSlice — last-used mode persistence', () => {
     });
   });
 });
+
+describe('SectionSlice alignment binding', () => {
+  let state: SectionSlice;
+  const setState = (partial: Partial<SectionSlice> | ((s: SectionSlice) => Partial<SectionSlice>)) => {
+    state = { ...state, ...(typeof partial === 'function' ? partial(state) : partial) };
+  };
+
+  beforeEach(() => {
+    state = createSectionSlice(setState, () => state, {} as any);
+  });
+
+  it('cuts perpendicular to the alignment tangent and records the station', () => {
+    state.setSectionPlaneFromAlignment([0, 0, -1], [3, 50, -120], 120);
+    const custom = state.sectionPlane.custom!;
+    assertVecClose(custom.normal, [0, 0, -1]);
+    assert.strictEqual(custom.distance, 120);
+    assert.strictEqual(custom.alignmentStation, 120);
+  });
+
+  it('re-orients on every station, not just the first', () => {
+    state.setSectionPlaneFromAlignment([0, 0, -1], [0, 0, 0], 0);
+    state.setSectionPlaneFromAlignment([Math.SQRT1_2, 0, -Math.SQRT1_2], [10, 0, -10], 15);
+    assertVecClose(state.sectionPlane.custom!.normal, [Math.SQRT1_2, 0, -Math.SQRT1_2]);
+    assert.strictEqual(state.sectionPlane.custom!.alignmentStation, 15);
+  });
+
+  it('a face pick or unbind keeps the cut but ends the binding', () => {
+    state.setSectionPlaneFromAlignment([0, 0, -1], [0, 0, -5], 5);
+    state.setSectionPlaneFromFace([1, 0, 0], [2, 0, 0]);
+    assert.strictEqual(state.sectionPlane.custom!.alignmentStation, undefined);
+
+    state.setSectionPlaneFromAlignment([0, 0, -1], [0, 0, -5], 5);
+    state.unbindSectionAlignment();
+    assert.strictEqual(state.sectionPlane.custom!.alignmentStation, undefined);
+    assertVecClose(state.sectionPlane.custom!.normal, [0, 0, -1]);
+  });
+});

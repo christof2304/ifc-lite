@@ -11,8 +11,7 @@ import { X, Slice, ChevronDown, FileImage, FlipHorizontal2, MousePointerClick, R
 import { Button } from '@/components/ui/button';
 import { useViewerStore, loadLastSectionMode } from '@/store';
 import { useDraggablePanel } from '@/hooks/useDraggablePanel';
-import { useAlignmentLines3D } from '@/hooks/useAlignmentLines3D';
-import { alignmentPathLength, sampleAlignmentStation } from '@/lib/alignment/alignment-station';
+import { useAlignmentSection } from '@/hooks/useAlignmentSection';
 import { tourAnchor, TOUR_ANCHORS } from '@/lib/tours/anchors';
 import { AXIS_INFO } from './sectionConstants';
 import { SectionPlaneVisualization } from './SectionVisualization';
@@ -41,43 +40,38 @@ export function SectionOverlay() {
   const isCustom = sectionPlane.custom !== undefined;
 
   // Cross-sections perpendicular to an IfcAlignment centerline (e.g. a
-  // curved bridge axis), sampled from the same line-list buffer the 3D
-  // alignment overlay already renders — see alignment-station.ts.
-  const alignmentVerts = useAlignmentLines3D();
-  const alignmentLength = useMemo(() => alignmentPathLength(alignmentVerts), [alignmentVerts]);
-  const hasAlignment = alignmentLength > 1e-6;
-  const [alignmentPickOpen, setAlignmentPickOpen] = useState(false);
-  const [station, setStation] = useState(0);
-
-  const applyStation = useCallback((distance: number) => {
-    const clamped = Math.min(Math.max(distance, 0), alignmentLength);
-    const sample = sampleAlignmentStation(alignmentVerts, clamped);
-    if (!sample) return;
-    setStation(clamped);
-    setSectionPlaneFromFace(sample.tangent, sample.point);
-  }, [alignmentVerts, alignmentLength, setSectionPlaneFromFace]);
+  // curved bridge axis). The binding lives on the custom plane
+  // (`alignmentStation`), so the station slider, the distance input and the
+  // 3D gizmo all move a bound cut along the axis — see useAlignmentSection.
+  const {
+    hasAlignment,
+    length: alignmentLength,
+    station: alignmentStation,
+    goToStation,
+  } = useAlignmentSection();
+  const unbindSectionAlignment = useViewerStore((s) => s.unbindSectionAlignment);
+  const alignmentPickOpen = alignmentStation !== null;
+  const station = alignmentStation ?? 0;
 
   const handleToggleAlignmentPick = useCallback(() => {
     if (alignmentPickOpen) {
-      setAlignmentPickOpen(false);
+      unbindSectionAlignment();
       return;
     }
     setSectionPickMode(false);
-    setAlignmentPickOpen(true);
-    applyStation(alignmentLength / 2);
-  }, [alignmentPickOpen, alignmentLength, applyStation, setSectionPickMode]);
+    goToStation(alignmentLength / 2);
+  }, [alignmentPickOpen, alignmentLength, goToStation, setSectionPickMode, unbindSectionAlignment]);
 
   const handleStationChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(e.target.value);
-    if (Number.isFinite(value)) applyStation(value);
-  }, [applyStation]);
+    if (Number.isFinite(value)) goToStation(value);
+  }, [goToStation]);
 
   const handleClose = useCallback(() => {
     setActiveTool('select');
   }, [setActiveTool]);
 
   const handleAxisChange = useCallback((axis: 'down' | 'front' | 'side') => {
-    setAlignmentPickOpen(false);
     setSectionPlaneAxis(axis);
   }, [setSectionPlaneAxis]);
 
@@ -85,30 +79,40 @@ export function SectionOverlay() {
   // intercepted in `selectionHandlers.ts`, which calls
   // `setSectionPlaneFromFace` and clears pick mode for us. (issue #243)
   const handleTogglePickMode = useCallback(() => {
-    setAlignmentPickOpen(false);
+    unbindSectionAlignment();
     setSectionPickMode(!sectionPickMode);
-  }, [sectionPickMode, setSectionPickMode]);
+  }, [sectionPickMode, setSectionPickMode, unbindSectionAlignment]);
 
   // "Reset to axis" in custom mode — clearing the custom field via
   // setSectionPlaneAxis re-uses the existing cardinal pathway. We pick
   // the nearest cardinal that's already in `axis` (kept in sync at pick
   // time) so the user lands on the closest preset they had before.
   const handleResetToAxis = useCallback(() => {
-    setAlignmentPickOpen(false);
     setSectionPlaneAxis(sectionPlane.axis);
   }, [sectionPlane.axis, setSectionPlaneAxis]);
 
+  // A cut bound to the alignment moves along it: a distance change becomes
+  // the same change in station, re-sampled so the plane stays perpendicular.
   const handleCustomDistanceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const v = Number(e.target.value);
-    if (Number.isFinite(v)) setSectionCustomDistance(v);
-  }, [setSectionCustomDistance]);
+    if (!Number.isFinite(v)) return;
+    const current = useViewerStore.getState().sectionPlane.custom?.distance;
+    if (alignmentStation !== null && current !== undefined) {
+      goToStation(alignmentStation + (v - current));
+      return;
+    }
+    setSectionCustomDistance(v);
+  }, [alignmentStation, goToStation, setSectionCustomDistance]);
 
   const handlePositionChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(e.target.value);
-    if (!Number.isNaN(value)) {
-      setSectionPlanePosition(value);
+    if (Number.isNaN(value)) return;
+    if (alignmentStation !== null) {
+      goToStation((value / 100) * alignmentLength);
+      return;
     }
-  }, [setSectionPlanePosition]);
+    setSectionPlanePosition(value);
+  }, [alignmentStation, alignmentLength, goToStation, setSectionPlanePosition]);
 
   // Section-plane drag preview: while the user is actively dragging
   // the position slider, render the splat shader at 1/4 density so
@@ -388,7 +392,9 @@ export function SectionOverlay() {
                 min="0"
                 max="100"
                 step="0.1"
-                value={sectionPlane.position}
+                value={alignmentStation !== null && alignmentLength > 0
+                  ? (alignmentStation / alignmentLength) * 100
+                  : sectionPlane.position}
                 onChange={handlePositionChange}
                 onPointerDown={handleSliderDragStart}
                 onPointerUp={handleSliderDragEnd}

@@ -277,6 +277,19 @@ export interface SectionSlice {
   ) => void;
   /** Update only the custom plane's signed distance (drag gizmo / numeric input). */
   setSectionCustomDistance: (distance: number) => void;
+  /**
+   * Cut perpendicular to an IfcAlignment at `station`: `tangent`/`point` are
+   * the centerline sample there. Same as {@link setSectionPlaneFromFace} but
+   * records the station, which binds later distance edits to the alignment
+   * (see `CustomSectionPlane.alignmentStation`).
+   */
+  setSectionPlaneFromAlignment: (
+    tangent: [number, number, number],
+    point: [number, number, number],
+    station: number,
+  ) => void;
+  /** Keep the current cut but stop moving it along the alignment. */
+  unbindSectionAlignment: () => void;
   /** Arm/disarm the "next click picks a face" mode. Disarming clears any active hover preview. */
   setSectionPickMode: (enabled: boolean) => void;
   /**
@@ -323,7 +336,7 @@ export const getDefaultSectionPlane = (): SectionPlane => ({
   capStyle:     getDefaultCapStyle(),
 });
 
-export const createSectionSlice: StateCreator<SectionSlice, [], [], SectionSlice> = (set) => ({
+export const createSectionSlice: StateCreator<SectionSlice, [], [], SectionSlice> = (set, get) => ({
   // Initial state
   sectionPlane: getDefaultSectionPlane(),
   sectionPickMode: false,
@@ -540,6 +553,22 @@ export const createSectionSlice: StateCreator<SectionSlice, [], [], SectionSlice
         custom: { ...state.sectionPlane.custom, distance },
       },
     };
+  }),
+
+  setSectionPlaneFromAlignment: (tangent, point, station) => {
+    get().setSectionPlaneFromFace(tangent, point);
+    set((state) => {
+      const custom = state.sectionPlane.custom;
+      if (!custom || !Number.isFinite(station)) return state;
+      return { sectionPlane: { ...state.sectionPlane, custom: { ...custom, alignmentStation: station } } };
+    });
+  },
+
+  unbindSectionAlignment: () => set((state) => {
+    const custom = state.sectionPlane.custom;
+    if (!custom || custom.alignmentStation === undefined) return state;
+    const { alignmentStation: _unbound, ...rest } = custom;
+    return { sectionPlane: { ...state.sectionPlane, custom: rest } };
   }),
 
   setSectionPickMode: (enabled) => set(() => (

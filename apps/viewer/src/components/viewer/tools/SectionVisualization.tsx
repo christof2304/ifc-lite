@@ -19,13 +19,14 @@
  * the camera's point-projection of `center + normal * 1m`.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AXIS_INFO } from './sectionConstants';
 import { sectionPickPreviewAnchors } from './sectionPickPreviewAnchors';
 import { useViewerStore } from '@/store';
 import { getGlobalRenderer } from '@/hooks/useBCF';
 import { useTranslation } from '@/i18n';
 import { SectionPlaneDragGizmo } from './SectionPlaneDragGizmo';
+import { useAlignmentSection } from '@/hooks/useAlignmentSection';
 
 interface SectionPlaneVisualizationProps {
   axis: 'down' | 'front' | 'side';
@@ -47,6 +48,19 @@ export function SectionPlaneVisualization({ axis, enabled }: SectionPlaneVisuali
   const CUSTOM_COLOR = '#9C6BDE';
   const customPlane = useViewerStore((s) => s.sectionPlane.custom);
   const setSectionCustomDistance = useViewerStore((s) => s.setSectionCustomDistance);
+  // A cut bound to an IfcAlignment follows the axis while dragged: the
+  // gizmo reports "start distance + metres dragged", which becomes "start
+  // station + metres dragged", re-sampled so the plane stays perpendicular.
+  const { station: alignmentStation, goToStation } = useAlignmentSection();
+  const dragStartRef = useRef<{ station: number; distance: number } | null>(null);
+  const setGizmoDistance = useCallback((d: number) => {
+    const start = dragStartRef.current;
+    if (start) {
+      goToStation(start.station + (d - start.distance));
+      return;
+    }
+    setSectionCustomDistance(d);
+  }, [goToStation, setSectionCustomDistance]);
   const setPreviewStride = useViewerStore((s) => s.setPointCloudPreviewStride);
   const pointCloudAssetCount = useViewerStore((s) => s.pointCloudAssetCount);
   // Live face-pick hover preview (issue #243 follow-up). Only set
@@ -112,9 +126,17 @@ export function SectionPlaneVisualization({ axis, enabled }: SectionPlaneVisuali
         <SectionPlaneDragGizmo
           color={CUSTOM_COLOR}
           customPlane={customPlane}
-          setDistance={setSectionCustomDistance}
-          onDragStart={() => { if (pointCloudAssetCount > 0) setPreviewStride(4); }}
-          onDragEnd={()  => setPreviewStride(1)}
+          setDistance={setGizmoDistance}
+          onDragStart={() => {
+            dragStartRef.current = alignmentStation !== null
+              ? { station: alignmentStation, distance: customPlane.distance }
+              : null;
+            if (pointCloudAssetCount > 0) setPreviewStride(4);
+          }}
+          onDragEnd={() => {
+            dragStartRef.current = null;
+            setPreviewStride(1);
+          }}
         />
       )}
 

@@ -246,6 +246,16 @@ export interface CustomSectionPlane {
   tangent: [number, number, number];
   /** Second in-plane axis, deterministic from `normal`. */
   bitangent: [number, number, number];
+  /**
+   * Set while the cut is bound to an IfcAlignment: the station (metres
+   * along the centerline) the plane was sampled at. Bound cuts move ALONG
+   * the alignment — every distance change re-samples point + tangent so the
+   * plane stays perpendicular to the axis — instead of sliding parallel to
+   * their first normal. Any other way of setting a plane (face pick, axis
+   * preset, viewpoint restore) builds a fresh custom plane without it,
+   * which ends the binding.
+   */
+  alignmentStation?: number;
 }
 
 export interface SectionPlane {
