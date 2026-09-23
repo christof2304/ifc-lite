@@ -4,8 +4,11 @@
 
 //! IfcAlignment centerline extraction for the 3D viewport.
 //!
-//! IfcAlignment carries its geometry in the `Axis` curve (an
-//! `IfcAlignmentCurve` or an `IfcPolyline`), not a `Representation`. Rather
+//! IFC4x1 `IfcAlignment` carries its geometry in the `Axis` curve (an
+//! `IfcAlignmentCurve` or an `IfcPolyline`); IFC4x3 moved it into the
+//! `Representation` (`'Axis'` → `IfcGradientCurve` /
+//! `IfcSegmentedReferenceCurve`, `'FootPrint'` → 2D `IfcCompositeCurve`),
+//! positioned by the alignment's `ObjectPlacement`. Rather
 //! than render it as a triangulated ribbon mesh — which reads as a thin solid
 //! strip and not the thin LINE users expect (matching IfcGrid axes and
 //! IfcAnnotation curves) — we sample the alignment directrix into a flat
@@ -107,16 +110,26 @@ pub(crate) fn extract_alignment_line_vertices(
         let Ok(Some(alignment)) = AlignmentCurve::parse(&axis, &mut decoder) else {
             continue;
         };
-        append_alignment_segments(&alignment, unit_scale, rtc, &mut out);
+        // Curve coordinates are relative to the alignment's ObjectPlacement
+        // (metres, column-major); identity when it has none.
+        let placement = router
+            .resolve_scaled_placement(&entity, &mut decoder)
+            .unwrap_or(IDENTITY);
+        append_alignment_segments(&alignment, unit_scale, &placement, rtc, &mut out);
     }
     out
 }
 
 /// Sample one alignment's centerline and append its line-list segments to
 /// `out`, in renderer Y-up / RTC-subtracted / metres space.
+const IDENTITY: [f64; 16] = [
+    1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+];
+
 fn append_alignment_segments(
     alignment: &AlignmentCurve,
     unit_scale: f64,
+    placement: &[f64; 16],
     rtc: (f64, f64, f64),
     out: &mut Vec<f32>,
 ) {
@@ -137,10 +150,12 @@ fn append_alignment_segments(
     for i in 0..count {
         let station = (i as f64 * step).min(length);
         let o = alignment.evaluate(station).origin;
-        // file units → metres
-        let mx = o.x * unit_scale - rtc.0;
-        let my = o.y * unit_scale - rtc.1;
-        let mz = o.z * unit_scale - rtc.2;
+        // file units → metres, then the (already metre-scaled) placement.
+        let (lx, ly, lz) = (o.x * unit_scale, o.y * unit_scale, o.z * unit_scale);
+        let m = placement;
+        let mx = m[0] * lx + m[4] * ly + m[8] * lz + m[12] - rtc.0;
+        let my = m[1] * lx + m[5] * ly + m[9] * lz + m[13] - rtc.1;
+        let mz = m[2] * lx + m[6] * ly + m[10] * lz + m[14] - rtc.2;
         // IFC Z-up → WebGL Y-up: (x, z, -y). Matches MeshDataJs::new so the
         // line lands on the same ground as the terrain meshes.
         pts.push([mx as f32, mz as f32, -my as f32]);
@@ -153,14 +168,22 @@ fn append_alignment_segments(
     }
 }
 
-/// Resolve an `IfcAlignment`'s directrix curve. IFC4X1 puts `Axis` at
-/// attribute 7; some publishers reuse `Representation` (6) or hang it at 8.
-/// Accept the first ref that resolves to an `IfcAlignmentCurve` or
-/// `IfcPolyline` (the two `AlignmentCurve::parse` understands).
+/// Resolve an `IfcAlignment`'s directrix curve.
+///
+/// IFC4x3: `Representation` (attr 6) → the `'Axis'` shape representation's
+/// curve (`IfcGradientCurve`; an `IfcSegmentedReferenceCurve` contributes
+/// its gradient `BaseCurve`), else the `'FootPrint'` 2D curve.
+///
+/// IFC4x1: `Axis` at attribute 7; some publishers reuse `Representation`
+/// (6) or hang it at 8. Accept the first ref that resolves to an
+/// `IfcAlignmentCurve` or `IfcPolyline`.
 fn locate_axis_curve(
     entity: &ifc_lite_core::DecodedEntity,
     decoder: &mut EntityDecoder,
 ) -> Option<ifc_lite_core::DecodedEntity> {
+    if let Some(curve) = representation_axis_curve(entity, decoder) {
+        return Some(curve);
+    }
     let alignment_curve = IfcType::from_str("IFCALIGNMENTCURVE");
     for idx in [7usize, 8, 6] {
         let Some(attr) = entity.get(idx) else { continue };
@@ -174,6 +197,49 @@ fn locate_axis_curve(
         }
     }
     None
+}
+
+/// IFC4x3 path of [`locate_axis_curve`]: prefer the `'Axis'` representation
+/// (3D, carries the vertical profile) over `'FootPrint'` (plan only).
+fn representation_axis_curve(
+    entity: &ifc_lite_core::DecodedEntity,
+    decoder: &mut EntityDecoder,
+) -> Option<ifc_lite_core::DecodedEntity> {
+    let shape = decoder.decode_by_id(entity.get_ref(6)?).ok()?;
+    if shape.ifc_type != IfcType::IfcProductDefinitionShape {
+        return None;
+    }
+    let mut footprint = None;
+    for rep_id in shape.get_refs(2)? {
+        let Ok(rep) = decoder.decode_by_id(rep_id) else { continue };
+        let identifier = rep.get(1).and_then(|v| v.as_string()).unwrap_or("").to_ascii_uppercase();
+        for item_id in rep.get_refs(3).unwrap_or_default() {
+            let Ok(item) = decoder.decode_by_id(item_id) else { continue };
+            let curve = if item.ifc_type == IfcType::IfcSegmentedReferenceCurve {
+                // IfcSegmentedReferenceCurve: 0 Segments, 1 SelfIntersect, 2 BaseCurve
+                match item.get_ref(2).and_then(|id| decoder.decode_by_id(id).ok()) {
+                    Some(base) => base,
+                    None => continue,
+                }
+            } else {
+                item
+            };
+            let usable = matches!(
+                curve.ifc_type,
+                IfcType::IfcGradientCurve | IfcType::IfcPolyline | IfcType::IfcCompositeCurve
+            );
+            if !usable {
+                continue;
+            }
+            if identifier == "AXIS" {
+                return Some(curve);
+            }
+            if identifier == "FOOTPRINT" && footprint.is_none() {
+                footprint = Some(curve);
+            }
+        }
+    }
+    footprint
 }
 
 #[cfg(test)]
@@ -223,6 +289,69 @@ END-ISO-10303-21;
         }
         assert!((max_x - 10.0).abs() < 0.5, "max renderer-x ≈10, got {max_x}");
         assert!((max_abs_z - 10.0).abs() < 0.5, "max |renderer-z| ≈10, got {max_abs_z}");
+    }
+
+    // IFC4x3: the directrix lives in Representation 'Axis' as an
+    // IfcGradientCurve (quarter arc R = 100 on a +1 % grade from 50 m) and
+    // the alignment is placed at (1000, 0, 0).
+    const CONTENT_4X3: &str = r#"ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION((''),'2;1');
+FILE_NAME('','',(''),(''),'','','');
+FILE_SCHEMA(('IFC4X3_ADD2'));
+ENDSEC;
+DATA;
+#20=IFCCARTESIANPOINT((0.,0.));
+#21=IFCDIRECTION((1.,0.));
+#22=IFCAXIS2PLACEMENT2D(#20,#21);
+#23=IFCVECTOR(#21,1.);
+#24=IFCLINE(#20,#23);
+#25=IFCCIRCLE(#22,100.);
+#26=IFCCURVESEGMENT(.CONTINUOUS.,#22,IFCLENGTHMEASURE(0.),IFCLENGTHMEASURE(157.0796326795),#25);
+#27=IFCCARTESIANPOINT((100.,100.));
+#28=IFCDIRECTION((0.,1.));
+#29=IFCAXIS2PLACEMENT2D(#27,#28);
+#30=IFCCURVESEGMENT(.DISCONTINUOUS.,#29,IFCLENGTHMEASURE(0.),IFCLENGTHMEASURE(0.),#24);
+#31=IFCCOMPOSITECURVE((#26,#30),.F.);
+#32=IFCCARTESIANPOINT((0.,50.));
+#33=IFCDIRECTION((1.,0.01));
+#34=IFCAXIS2PLACEMENT2D(#32,#33);
+#35=IFCCURVESEGMENT(.CONTINUOUS.,#34,IFCLENGTHMEASURE(0.),IFCLENGTHMEASURE(157.08),#24);
+#36=IFCCARTESIANPOINT((157.0796326795,51.570796326795));
+#37=IFCAXIS2PLACEMENT2D(#36,#33);
+#38=IFCCURVESEGMENT(.DISCONTINUOUS.,#37,IFCLENGTHMEASURE(0.),IFCLENGTHMEASURE(0.),#24);
+#39=IFCGRADIENTCURVE((#35,#38),.F.,#31,$);
+#40=IFCSHAPEREPRESENTATION($,'Axis','Curve3D',(#39));
+#41=IFCSHAPEREPRESENTATION($,'FootPrint','Curve2D',(#31));
+#42=IFCPRODUCTDEFINITIONSHAPE($,$,(#41,#40));
+#43=IFCCARTESIANPOINT((1000.,0.,0.));
+#44=IFCAXIS2PLACEMENT3D(#43,$,$);
+#45=IFCLOCALPLACEMENT($,#44);
+#46=IFCALIGNMENT('1aBcDeFgHiJkLmNoPqRsT0',$,'Road',$,$,#45,#42,$);
+ENDSEC;
+END-ISO-10303-21;
+"#;
+
+    #[test]
+    fn ifc4x3_axis_representation_follows_arc_grade_and_placement() {
+        let verts = extract_alignment_line_vertices(
+            CONTENT_4X3,
+            Some(MeshFrame::ModelRtc { anchor: (0.0, 0.0, 0.0) }),
+        );
+        assert!(!verts.is_empty(), "IFC4x3 alignment must emit a centerline");
+        let (mut min_x, mut max_x, mut min_e, mut max_e) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
+        for v in verts.chunks_exact(3) {
+            min_x = min_x.min(v[0]);
+            max_x = max_x.max(v[0]);
+            min_e = min_e.min(v[1]);
+            max_e = max_e.max(v[1]);
+        }
+        // Placement shifts x by 1000; the arc spans 100 m in x.
+        assert!((min_x - 1000.0).abs() < 0.1, "min x {min_x}");
+        assert!((max_x - 1100.0).abs() < 0.1, "max x {max_x}");
+        // Elevation (renderer Y) comes from the gradient: 50 → 51.57 m.
+        assert!((min_e - 50.0).abs() < 0.01, "start elevation {min_e}");
+        assert!((max_e - 51.5708).abs() < 0.01, "end elevation {max_e}");
     }
 
     #[test]
