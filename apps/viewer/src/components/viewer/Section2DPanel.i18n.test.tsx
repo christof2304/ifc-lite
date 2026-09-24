@@ -50,7 +50,9 @@ afterEach(() => {
 describe('2D Section panel localization (#4918)', () => {
   it('updates mounted panel chrome and accessibility titles on a live locale change', () => {
     assert.ok(section2dEn, 'section-2d.en.ts catalogue must exist');
-    const ui = render(<Section2DPanel />);
+    render(<Section2DPanel />);
+    // Floating panels are portaled to <body>, outside the render container.
+    const ui = document.body;
     assert.match(ui.textContent ?? '', /2D Section/);
 
     registerLocale('section-2d-pseudo', pseudoLocale());

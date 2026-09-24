@@ -38,7 +38,11 @@ const CAP_LOCALE: Catalogue = {
 };
 
 function mountedExpanded(): HTMLElement {
-  const ui = render(<ToolOverlays />);
+  render(<ToolOverlays />);
+  // The Section panel (and its cap controls) floats: it is portaled to
+  // <body>, outside the render container.
+  const ui = document.querySelector<HTMLElement>('[data-tour="section-panel"]');
+  assert.ok(ui);
   const header = [...ui.querySelectorAll('button')].find((candidate) => candidate.textContent?.includes('Section'));
   assert.ok(header);
   click(header);

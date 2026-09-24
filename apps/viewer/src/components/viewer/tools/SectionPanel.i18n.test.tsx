@@ -54,6 +54,11 @@ const TEST_LOCALE: Catalogue = {
   'sectionTool.clipping.enableTitle': 'Activer la coupe',
 };
 
+/** Buttons of the floating Section panel itself (it is portaled after the overlay container). */
+function panelButtons(ui: HTMLElement): NodeListOf<HTMLButtonElement> {
+  return ui.querySelectorAll<HTMLButtonElement>('[data-tour="section-panel"] button');
+}
+
 function button(ui: HTMLElement, text: string): HTMLButtonElement {
   const result = [...ui.querySelectorAll('button')].find((candidate) =>
     candidate.textContent?.trim() === text || candidate.title === text || candidate.getAttribute('aria-label') === text);
@@ -62,7 +67,7 @@ function button(ui: HTMLElement, text: string): HTMLButtonElement {
 }
 
 function expand(ui: HTMLElement): void {
-  const heading = [...ui.querySelectorAll('button')].find((candidate) => candidate.textContent?.includes('Section'));
+  const heading = [...panelButtons(ui)].find((candidate) => candidate.textContent?.includes('Section'));
   assert.ok(heading);
   click(heading);
 }
@@ -114,7 +119,9 @@ afterEach(() => {
 describe('mounted Section tool localization (#4785)', () => {
   it('preserves default English controls, cardinal states and clipping behavior', () => {
     window.localStorage.setItem('ifc-lite:section-last-mode', JSON.stringify({ kind: 'cardinal', axis: 'down', position: 50, flipped: false }));
-    const ui = render(<ToolOverlays />);
+    render(<ToolOverlays />);
+    // Floating panels are portaled to <body>, outside the render container.
+    const ui = document.body;
     assert.match(ui.textContent ?? '', /Section/);
     assert.equal(ui.querySelector<HTMLElement>('[title="Drag to move"]')?.title, 'Drag to move');
     assert.equal(button(ui, 'Open 2D Drawing Panel').title, 'Open 2D Drawing Panel');
@@ -146,9 +153,11 @@ describe('mounted Section tool localization (#4785)', () => {
     registerLocale('section-test', TEST_LOCALE);
     window.localStorage.setItem('ifc-lite:section-last-mode', JSON.stringify({ kind: 'cardinal', axis: 'front', position: 50, flipped: false }));
     setLocale('section-test');
-    const ui = render(<ToolOverlays />);
+    render(<ToolOverlays />);
+    // Floating panels are portaled to <body>, outside the render container.
+    const ui = document.body;
     assert.match(ui.textContent ?? '', /50\.0% — Avant/);
-    const heading = [...ui.querySelectorAll('button')].find((candidate) => candidate.textContent?.includes('Coupe'));
+    const heading = [...panelButtons(ui)].find((candidate) => candidate.textContent?.includes('Coupe'));
     assert.ok(heading);
     click(heading);
     type(input(ui, 'Pourcentage du plan local'), '37.5');
@@ -179,9 +188,11 @@ describe('mounted Section tool localization (#4785)', () => {
     });
     window.localStorage.setItem('ifc-lite:section-last-mode', JSON.stringify({ kind: 'cardinal', axis: 'front', position: 42.25, flipped: false }));
     setLocale('partial-section');
-    const ui = render(<ToolOverlays />);
+    render(<ToolOverlays />);
+    // Floating panels are portaled to <body>, outside the render container.
+    const ui = document.body;
     assert.match(ui.textContent ?? '', /Localized section/);
-    const heading = [...ui.querySelectorAll('button')].find((candidate) => candidate.textContent?.includes('Localized section'));
+    const heading = [...panelButtons(ui)].find((candidate) => candidate.textContent?.includes('Localized section'));
     assert.ok(heading);
     click(heading);
     assert.equal(hint(ui), 'Cut front at 42.3%');
@@ -204,7 +215,9 @@ describe('mounted Section tool localization (#4785)', () => {
     loadedModels.set('locale-model', { id: 'locale-model' } as never);
     const selectedIds = new Set([321]);
     useViewerStore.setState({ models: loadedModels, selectedEntityId: 321, selectedEntityIds: selectedIds });
-    const ui = render(<ToolOverlays />);
+    render(<ToolOverlays />);
+    // Floating panels are portaled to <body>, outside the render container.
+    const ui = document.body;
     expand(ui);
     type(input(ui, 'Section plane position percentage'), '37.5');
     click(button(ui, 'Flip cut direction'));
@@ -275,7 +288,9 @@ describe('mounted Section tool localization (#4785)', () => {
 
   it('does not restart the delayed face-pick timer when the locale changes', async () => {
     registerLocale('section-test', TEST_LOCALE);
-    const ui = render(<ToolOverlays />);
+    render(<ToolOverlays />);
+    // Floating panels are portaled to <body>, outside the render container.
+    const ui = document.body;
     assert.equal(useViewerStore.getState().sectionPickMode, false);
     await advance(100);
     act(() => setLocale('section-test'));
@@ -294,9 +309,11 @@ describe('mounted Section tool localization (#4785)', () => {
   it('translates delayed face-pick instructions and preserves drawing and close actions', async () => {
     registerLocale('section-test', TEST_LOCALE);
     setLocale('section-test');
-    const ui = render(<ToolOverlays />);
+    render(<ToolOverlays />);
+    // Floating panels are portaled to <body>, outside the render container.
+    const ui = document.body;
     await advance(220);
-    const heading = [...ui.querySelectorAll('button')].find((candidate) => candidate.textContent?.includes('Coupe'));
+    const heading = [...panelButtons(ui)].find((candidate) => candidate.textContent?.includes('Coupe'));
     assert.ok(heading);
     click(heading);
     const pick = button(ui, 'Cliquez une face…');

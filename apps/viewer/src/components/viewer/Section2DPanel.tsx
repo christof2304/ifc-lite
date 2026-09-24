@@ -7,6 +7,7 @@
 import { drawingAnnotationFrame } from '@/lib/model-placement/drawing-annotation-frame';
 import { usePlacementCoordinateInfo } from '@/hooks/usePlacementCoordinateInfo';
 import React, { useCallback, useRef, useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { placedViewGeometry } from '@/lib/model-placement/view-geometry';
 import { X, Download, FileDown, Eye, EyeOff, Maximize2, ZoomIn, ZoomOut, Loader2, Printer, GripVertical, MoreHorizontal, RefreshCw, Pin, PinOff, Palette, Ruler, Trash2, FileText, Shapes, Box, BoxSelect, PenTool, Hexagon, Type, Cloud, MousePointer2, Tag, Layers, ScanLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,33 @@ interface Section2DPanelProps {
   mergedGeometry?: GeometryResult | null;
   computedIsolatedIds?: Set<number> | null;
   modelIdToIndex?: Map<string, number>;
+}
+
+const PANEL_SIZE_KEY = 'ifc-lite:floating:section-2d-size';
+const DEFAULT_PANEL_SIZE = { width: 400, height: 300 };
+
+/** Remembered floating size, clamped to the resize limits (300–1200 × 200–800). */
+function loadPanelSize(): { width: number; height: number } {
+  try {
+    const raw = localStorage.getItem(PANEL_SIZE_KEY);
+    if (!raw) return DEFAULT_PANEL_SIZE;
+    const p = JSON.parse(raw) as { width?: number; height?: number };
+    if (!Number.isFinite(p.width) || !Number.isFinite(p.height)) return DEFAULT_PANEL_SIZE;
+    return {
+      width: Math.max(300, Math.min(1200, p.width!)),
+      height: Math.max(200, Math.min(800, p.height!)),
+    };
+  } catch {
+    return DEFAULT_PANEL_SIZE;
+  }
+}
+
+function savePanelSize(size: { width: number; height: number }): void {
+  try {
+    localStorage.setItem(PANEL_SIZE_KEY, JSON.stringify(size));
+  } catch {
+    // Private mode / blocked storage: size just isn't remembered.
+  }
 }
 
 export function Section2DPanel({
@@ -194,14 +222,22 @@ export function Section2DPanel({
   // LOCAL STATE
   // ═══════════════════════════════════════════════════════════════════════════
   const [isExpanded] = useState(false);
-  const [panelSize, setPanelSize] = useState({ width: 400, height: 300 });
+  const [panelSize, setPanelSize] = useState(loadPanelSize);
   const [isNarrow, setIsNarrow] = useState(false);  // Track if panel is too narrow for all buttons
   const [isPinned, setIsPinned] = useState(true);  // Default ON: keep position on regenerate
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   // Drag-to-move by the header grip (issue #1107). Disabled while expanded —
   // that mode is full-screen (inset-4), so a free position makes no sense.
-  const drag = useDraggablePanel(panelRef, { disabled: isExpanded });
+  // Floats over the whole app (portaled, fixed) and remembers where it was;
+  // first appearance is where it used to dock: bottom-left of the viewport.
+  const drag = useDraggablePanel(panelRef, {
+    disabled: isExpanded,
+    floating: {
+      persistKey: 'ifc-lite:floating:section-2d-position',
+      initial: (vp, panel) => ({ top: vp.bottom - 16 - panel.height, left: vp.left + 16 }),
+    },
+  });
   const isResizing = useRef<'right' | 'top' | 'bottom' | 'corner-top' | 'corner-bottom' | null>(null);
   const resizeStartPos = useRef({ x: 0, y: 0, width: 0, height: 0 });
   // Track resize event handlers for cleanup
@@ -618,6 +654,10 @@ export function Section2DPanel({
 
     const handleMouseUp = () => {
       isResizing.current = null;
+      setPanelSize((size) => {
+        savePanelSize(size);
+        return size;
+      });
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
       resizeHandlersRef.current = { move: null, up: null };
@@ -663,10 +703,10 @@ export function Section2DPanel({
   if (!panelVisible) return null;
 
   const panelClasses = isExpanded
-    ? 'absolute inset-4 z-40'
-    : 'absolute bottom-4 left-4 z-40';
+    ? 'fixed inset-4 z-40'
+    : 'fixed bottom-4 left-4 z-40';
 
-  return (
+  return createPortal(
     <div
       ref={panelRef}
       className={`${panelClasses} bg-background rounded-lg border shadow-xl flex flex-col overflow-hidden`}
@@ -1339,6 +1379,7 @@ export function Section2DPanel({
         open={titleBlockEditorVisible}
         onOpenChange={setTitleBlockEditorVisible}
       />
-    </div>
+    </div>,
+    document.body,
   );
 }

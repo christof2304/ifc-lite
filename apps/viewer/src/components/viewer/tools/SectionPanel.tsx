@@ -7,6 +7,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Slice, ChevronDown, FileImage, FlipHorizontal2, MousePointerClick, RotateCcw, GripVertical, Spline } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useViewerStore, loadLastSectionMode } from '@/store';
@@ -184,15 +185,24 @@ export function SectionOverlay() {
   }, [clearDrawing, setDrawingPanelVisible]);
 
   const panelRef = useRef<HTMLDivElement>(null);
-  const drag = useDraggablePanel(panelRef);
+  const drag = useDraggablePanel(panelRef, {
+    floating: {
+      persistKey: 'ifc-lite:floating:section-panel',
+      // Where it used to sit: top-centre of the 3D viewport.
+      initial: (vp, panel) => ({ top: vp.top + 16, left: vp.left + (vp.width - panel.width) / 2 }),
+    },
+  });
 
   return (
     <>
-      {/* Compact Section Tool Panel - matches Measure tool style */}
+      {/* Compact Section Tool Panel - matches Measure tool style. Portaled
+          and fixed so it floats over the whole app (sidebars included), not
+          just the 3D viewport; its position is remembered. */}
+      {createPortal(
       <div
         ref={panelRef}
         style={drag.style}
-        className="pointer-events-auto absolute top-4 left-1/2 -translate-x-1/2 bg-background/95 backdrop-blur-sm rounded-lg border shadow-lg z-30"
+        className="pointer-events-auto fixed top-4 left-1/2 -translate-x-1/2 bg-background/95 backdrop-blur-sm rounded-lg border shadow-lg z-40"
         {...tourAnchor(TOUR_ANCHORS.sectionPanel)}
       >
         {/* Header doubles as a drag handle — buttons/inputs are ignored by the
@@ -430,7 +440,9 @@ export function SectionOverlay() {
             )}
           </div>
         )}
-      </div>
+      </div>,
+        document.body,
+      )}
 
       {/* Instruction hint - brutalist style matching Measure tool */}
       <div
