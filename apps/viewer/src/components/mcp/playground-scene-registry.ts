@@ -290,6 +290,7 @@ export function buildEntityRecords(
     let ifcType: string | undefined = md.ifcType;
     let storeyName: string | undefined;
     // Resolve more accurate IFC metadata from the parsed store.
+    // @raw-entity-enumeration-ok point check for optional source metadata of one already-produced mesh, not membership selection
     if (model.store.entityIndex.byId.has(md.expressId)) {
       try {
         const node = new EntityNode(model.store, md.expressId);

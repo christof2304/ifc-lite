@@ -3,6 +3,9 @@
 #does not grant an old-site baseline here. Keep a file listed after its last
 #raw access is removed so a future regression still fails.
 apps/viewer/src/store/slices/mutationSlice.ts
+apps/viewer/src/components/mcp/playground-dispatcher.ts
+apps/viewer/src/components/mcp/playground-scene-registry.ts
+apps/viewer/src/components/viewer/properties/RawStepCard.tsx
 packages/cache/src/adapt.ts
 packages/cache/src/sections/entities.ts
 packages/cache/src/sections/entity-index.ts

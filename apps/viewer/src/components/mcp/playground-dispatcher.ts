@@ -440,6 +440,7 @@ async function meshForClash(m: LoadedPlaygroundModel): Promise<ClashMeshes> {
   try {
     await processor.init();
     // Use our owning byte snapshot — store.source can be a detached sub-view.
+    // @raw-entity-enumeration-ok clash meshing uses the parsed STEP bytes and their source byte offsets together
     const result = await processor.process(
       m.bytes,
       m.store.entityIndex.byId as unknown as Map<number, unknown>,
