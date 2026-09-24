@@ -313,13 +313,13 @@ export function StatusBar() {
         <Separator orientation="vertical" className="h-3.5" />
 
         <a
-          href="https://ifclite.dev"
+          href="https://geobim.app"
           target="_blank"
           rel="noopener noreferrer"
           className="opacity-60 hover:opacity-100 hover:text-primary transition-opacity"
-          aria-label="Visit ifclite.dev — about, docs, and packages"
+          aria-label="Visit geobim.app"
         >
-          ifclite.dev →
+          geobim.app →
         </a>
       </div>
 

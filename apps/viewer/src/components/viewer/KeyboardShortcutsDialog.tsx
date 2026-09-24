@@ -109,12 +109,12 @@ function AboutTab() {
       {/* Links */}
       <div className="flex items-center justify-center flex-wrap gap-x-4 gap-y-1.5 text-xs">
         <a
-          href="https://ifclite.dev"
+          href="https://geobim.app"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
         >
-          ifclite.dev
+          geobim.app
           <ExternalLink className="h-3 w-3" />
         </a>
         <a

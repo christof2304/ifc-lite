@@ -1228,13 +1228,13 @@ export function ViewportContainer() {
               land on top of the content (#1736 follow-up). */}
           <div className="mt-10 hidden w-full max-w-3xl items-center justify-between gap-4 md:flex">
             <a
-              href="https://ifclite.dev"
+              href="https://geobim.app"
               target="_blank"
               rel="noopener noreferrer"
               className="group inline-flex items-center gap-2 text-xs font-mono px-3 py-1.5 bg-zinc-100 dark:bg-[#1f2335] border border-zinc-300 dark:border-[#3b4261] text-zinc-500 dark:text-[#565f89] hover:border-primary hover:text-primary transition-colors"
             >
               <span>New here?</span>
-              <span className="font-bold text-primary group-hover:translate-x-0.5 transition-transform">ifclite.dev →</span>
+              <span className="font-bold text-primary group-hover:translate-x-0.5 transition-transform">geobim.app →</span>
             </a>
             <div className="flex items-center gap-2 text-xs font-mono px-3 py-1.5 bg-zinc-100 dark:bg-[#1f2335] border border-zinc-300 dark:border-[#3b4261] text-zinc-500 dark:text-[#565f89]">
               <Command className="h-3 w-3" />
