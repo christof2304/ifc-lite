@@ -1068,7 +1068,15 @@ export function ViewportContainer() {
               >
                 ifc-lite
               </a>
-              {' '}(MPL-2.0)
+              {' '}(MPL-2.0) ·{' '}
+              <a
+                href="https://github.com/christof2304/ifc-lite/releases/tag/geobim-2026-09-24"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-primary"
+              >
+                Source
+              </a>
             </p>
 
             {/*
