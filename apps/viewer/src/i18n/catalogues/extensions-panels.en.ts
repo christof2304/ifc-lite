@@ -226,7 +226,7 @@ export const extensionsPanelsEn = {
   'extensionsPanels.privacyPanel.title': 'Privacy',
   'extensionsPanels.privacyPanel.helpLabel': 'Privacy',
   'extensionsPanels.privacyPanel.helpIntro':
-    'IFClite keeps a content-free action log of intents you perform (model loads, lens applies, exports) — used by the pattern miner to suggest one-click tools. The log never records model content, chat content, file names, or API keys.',
+    'ifc.geoBIM.app keeps a content-free action log of intents you perform (model loads, lens applies, exports) — used by the pattern miner to suggest one-click tools. The log never records model content, chat content, file names, or API keys.',
   'extensionsPanels.privacyPanel.helpOverlay':
     'The prompt overlay on the active flavor is appended to every chat system prompt — use it for stable preferences. Extract from chat scans the current session for explicit preferences and proposes them.',
   'extensionsPanels.privacyPanel.extractFromChat': 'Extract from chat',

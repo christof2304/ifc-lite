@@ -1045,17 +1045,30 @@ export function ViewportContainer() {
               <div className="relative z-10 animate-float-slow transition-transform duration-300 group-hover/logo:scale-110">
                 <img 
                   src="/logo.png" 
-                  alt="IFClite Logo" 
+                  alt="ifc.geoBIM.app Logo" 
                   className="h-28 w-auto drop-shadow-lg"
                 />
               </div>
             </div>
 
             <h2 className="text-3xl font-black tracking-tighter text-center mb-2 text-zinc-900 dark:text-[#a9b1d6]">
-              IFClite
+              ifc.geoBIM.app
             </h2>
             <p className="text-zinc-500 dark:text-[#565f89] font-mono text-sm text-center mb-8 border-b border-zinc-200 dark:border-[#3b4261] pb-4 w-full">
               IFC toolkit for the open web
+            </p>
+            {/* MPL-2.0 §3.2: tell users this is ifc-lite based and where the source is. */}
+            <p className="-mt-6 mb-8 text-[11px] font-mono text-zinc-400 dark:text-[#565f89] text-center">
+              Based on{' '}
+              <a
+                href="https://github.com/LTplus-AG/ifc-lite"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-primary"
+              >
+                ifc-lite
+              </a>
+              {' '}(MPL-2.0)
             </p>
 
             {/*

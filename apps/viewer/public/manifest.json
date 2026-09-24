@@ -1,11 +1,11 @@
 {
-  "name": "IFClite Viewer",
-  "short_name": "IFClite",
-  "description": "High-performance web viewer for IFC files",
+  "name": "ifc.geoBIM.app",
+  "short_name": "ifc.geoBIM",
+  "description": "IFC viewer for BIM × GIS — based on ifc-lite (MPL-2.0)",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1b26",
-  "theme_color": "#7aa2f7",
+  "background_color": "#0E1117",
+  "theme_color": "#0E1117",
   "icons": [
     {
       "src": "/favicon-16x16-cropped.png",

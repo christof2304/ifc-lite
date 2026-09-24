@@ -75,7 +75,7 @@ export function BCFServerConnectForm({
   // generic "register an OAuth application with the vendor" sends users
   // after something the vendor will not give them (#3900).
   const missingClientIdMessage = preset.vendorIssuedClientsOnly
-    ? `${preset.label} issues client ids to application vendors, not to space users, and this IFClite deployment has no ${preset.label} app configured (${vendorAppEnvPrefix(preset.id)}_CLIENT_ID). Sign in via browser is unavailable here.`
+    ? `${preset.label} issues client ids to application vendors, not to space users, and this deployment has no ${preset.label} app configured (${vendorAppEnvPrefix(preset.id)}_CLIENT_ID). Sign in via browser is unavailable here.`
     : undefined;
 
   const handlePresetChange = useCallback((id: string) => {
@@ -281,7 +281,7 @@ export function BCFServerConnectForm({
       {authMethod === 'oauth' && vendorApp && (
         <p className="text-xs text-muted-foreground" data-testid="bcf-server-vendor-app">
           Signs you in with your {preset.label} account through the {preset.label} app registered
-          to IFClite. No client id to enter.
+          to ifc.geoBIM.app. No client id to enter.
         </p>
       )}
 
@@ -302,7 +302,7 @@ export function BCFServerConnectForm({
             />
             <p className="text-xs text-muted-foreground">
               {preset.vendorIssuedClientsOnly
-                ? `${preset.label} issues client ids to application vendors, not to space users. Ask whoever runs this IFClite deployment to configure its ${preset.label} app.`
+                ? `${preset.label} issues client ids to application vendors, not to space users. Ask whoever runs this deployment to configure its ${preset.label} app.`
                 : 'From an OAuth app registered with the vendor. Servers offering dynamic client registration need no ID; leave it empty.'}
             </p>
           </div>
