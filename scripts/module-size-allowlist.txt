@@ -86,7 +86,7 @@
   1692 apps/viewer/src/components/viewer/LensPanel.tsx
   1411 apps/viewer/src/components/viewer/lists/ListBuilder.tsx
    548 apps/viewer/src/components/viewer/lists/ListResultsTable.tsx
-  1139 apps/viewer/src/components/viewer/MainToolbar.tsx
+  1126 apps/viewer/src/components/viewer/MainToolbar.tsx
    715 apps/viewer/src/components/viewer/measureHandlers.ts
    404 apps/viewer/src/components/viewer/PdfViewExportDialog.tsx
    572 apps/viewer/src/components/viewer/properties/BsddCard.tsx
@@ -117,11 +117,10 @@
    752 apps/viewer/src/components/viewer/tools/MeasurePanel.tsx
    677 apps/viewer/src/components/viewer/tools/MeasureQuantities.tsx
   1509 apps/viewer/src/components/viewer/tools/SpaceSketchOverlay.tsx
-   406 apps/viewer/src/components/viewer/useAnimationLoop.ts
    970 apps/viewer/src/components/viewer/useGeometryStreaming.ts
    916 apps/viewer/src/components/viewer/useMouseControls.ts
    683 apps/viewer/src/components/viewer/ViewerLayout.tsx
-  1815 apps/viewer/src/components/viewer/Viewport.tsx
+  1805 apps/viewer/src/components/viewer/Viewport.tsx
   1190 apps/viewer/src/components/viewer/ViewportContainer.tsx
    508 apps/viewer/src/components/viewer/ZonesPanel.tsx
    847 apps/viewer/src/hooks/ids/idsExportService.ts
@@ -298,7 +297,7 @@
    529 packages/query/src/duckdb-integration.ts
    583 packages/renderer/src/camera-controls.ts
    684 packages/renderer/src/camera.ts
-  3730 packages/renderer/src/index.ts
+  3698 packages/renderer/src/index.ts
    756 packages/renderer/src/picker.ts
    952 packages/renderer/src/pipeline.ts
    475 packages/renderer/src/pointcloud/point-cloud-renderer.ts
