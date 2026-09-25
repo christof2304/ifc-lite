@@ -21,9 +21,9 @@
 
 use super::IfcAPI;
 use ifc_lite_core::{
-    build_entity_index, extract_length_unit_scale, EntityDecoder, EntityScanner, IfcType,
+    build_entity_index, extract_length_unit_scale, EntityDecoder, EntityScanner,
 };
-use ifc_lite_geometry::{AlignmentCurve, GeometryRouter};
+use ifc_lite_geometry::{locate_axis_curve, AlignmentCurve, GeometryRouter};
 use ifc_lite_processing::MeshFrame;
 use wasm_bindgen::prelude::*;
 
@@ -151,29 +151,6 @@ fn append_alignment_segments(
         out.extend_from_slice(&w[0]);
         out.extend_from_slice(&w[1]);
     }
-}
-
-/// Resolve an `IfcAlignment`'s directrix curve. IFC4X1 puts `Axis` at
-/// attribute 7; some publishers reuse `Representation` (6) or hang it at 8.
-/// Accept the first ref that resolves to an `IfcAlignmentCurve` or
-/// `IfcPolyline` (the two `AlignmentCurve::parse` understands).
-fn locate_axis_curve(
-    entity: &ifc_lite_core::DecodedEntity,
-    decoder: &mut EntityDecoder,
-) -> Option<ifc_lite_core::DecodedEntity> {
-    let alignment_curve = IfcType::from_str("IFCALIGNMENTCURVE");
-    for idx in [7usize, 8, 6] {
-        let Some(attr) = entity.get(idx) else { continue };
-        if attr.is_null() {
-            continue;
-        }
-        if let Ok(Some(resolved)) = decoder.resolve_ref(attr) {
-            if resolved.ifc_type == alignment_curve || resolved.ifc_type == IfcType::IfcPolyline {
-                return Some(resolved);
-            }
-        }
-    }
-    None
 }
 
 #[cfg(test)]
