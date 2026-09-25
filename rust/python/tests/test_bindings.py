@@ -504,3 +504,46 @@ def test_a_type_only_property_survives_a_set_name_collision():
     # The occurrence still wins Shared, AND the type-only property arrives.
     assert merged == {"Shared": "from-occurrence", "TypeOnly": "kept"}
     assert set(merged) > set(own_only)
+
+
+# IFC4X1 alignment whose Axis (attr 7) is a 3-point IfcPolyline
+# (0,0,0) -> (10,0,0) -> (10,10,0), metres: 20 m of horizontal length.
+POLYLINE_ALIGNMENT = b"""ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION((''),'2;1');
+FILE_NAME('','',(''),(''),'','','');
+FILE_SCHEMA(('IFC4X1'));
+ENDSEC;
+DATA;
+#1=IFCCARTESIANPOINT((0.,0.,0.));
+#2=IFCCARTESIANPOINT((10.,0.,0.));
+#3=IFCCARTESIANPOINT((10.,10.,0.));
+#4=IFCPOLYLINE((#1,#2,#3));
+#10=IFCALIGNMENT('0aBcDeFgHiJkLmNoPqRsT0',$,'Test Alignment',$,$,$,$,#4,$);
+ENDSEC;
+END-ISO-10303-21;
+"""
+
+
+def _f64(buf):
+    return struct.unpack(f"<{len(buf) // 8}d", buf)
+
+
+def test_alignment_axes_samples_stations_points_and_tangents():
+    axes = ifclite_geom.alignment_axes(POLYLINE_ALIGNMENT)
+    assert [a["express_id"] for a in axes] == [10]
+    stations = _f64(axes[0]["stations"])
+    points = _f64(axes[0]["points"])
+    tangents = _f64(axes[0]["tangents"])
+    assert len(points) == len(tangents) == 3 * len(stations)
+    assert stations[0] == 0.0 and stations[-1] == pytest.approx(20.0)
+    assert all(b > a for a, b in zip(stations, stations[1:]))
+    assert max(b - a for a, b in zip(stations, stations[1:])) <= 1.0 + 1e-9
+    assert points[:3] == pytest.approx((0.0, 0.0, 0.0), abs=1e-6)
+    assert points[-3:] == pytest.approx((10.0, 10.0, 0.0), abs=1e-6)
+    assert tangents[:3] == pytest.approx((1.0, 0.0, 0.0), abs=1e-6)
+    assert tangents[-3:] == pytest.approx((0.0, 1.0, 0.0), abs=1e-6)
+
+
+def test_alignment_axes_is_empty_without_alignments():
+    assert ifclite_geom.alignment_axes(REBAR.read_bytes()) == []

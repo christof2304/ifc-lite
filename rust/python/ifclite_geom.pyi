@@ -187,6 +187,23 @@ def geometry_data_json(
     """
     ...
 
+class AlignmentAxis(TypedDict):
+    express_id: int
+    stations: bytes
+    points: bytes
+    tangents: bytes
+
+def alignment_axes(ifc_bytes: bytes) -> List[AlignmentAxis]:
+    """Sample every ``IfcAlignment`` axis, about 1 m apart, both ends included.
+
+    Byte buffers are little-endian f64 for ``numpy.frombuffer``: ``stations``
+    (n,) metres along the horizontal alignment from its start; ``points`` and
+    ``tangents`` (n, 3) in the frame of ``geometry_data_buffers`` (IFC Z-up,
+    absolute-world metres; unit tangents). Alignments whose directrix the
+    kernel cannot evaluate are left out, so the list may be empty.
+    """
+    ...
+
 def entity_data(
     ifc_bytes: bytes,
     placements: bool = False,

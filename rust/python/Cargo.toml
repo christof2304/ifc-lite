@@ -24,6 +24,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 ifc-lite-processing = { path = "../processing" }
+# `alignment_axes`: the IfcAlignment directrix evaluator behind the wasm
+# `parseAlignmentLines`, sampled with stations for linear referencing.
+ifc-lite-core = { path = "../core" }
+ifc-lite-geometry = { path = "../geometry", default-features = false }
 # Attribute / property-set / quantity extraction (`entity_data`). The crate's
 # default feature set is already empty; `default-features = false` states that
 # explicitly so a future default cannot silently drag `parquet-bos`

@@ -360,7 +360,9 @@ dependencies = [
 name = "ifc-lite-python"
 version = "4.6.0"
 dependencies = [
+ "ifc-lite-core",
  "ifc-lite-export",
+ "ifc-lite-geometry",
  "ifc-lite-processing",
  "pyo3",
  "serde_json",

@@ -21,6 +21,9 @@
 //! A third entry point, [`entity_data`], reads the non-geometric half of the
 //! file (attributes, property sets, quantity sets) over `ifc-lite-export`'s
 //! attribute model, the same one behind the wasm `exportCsv` / `exportJson`.
+//!
+//! [`alignment_axes::alignment_axes`] samples every `IfcAlignment` directrix
+//! with its stations, for sections and linear referencing along the axis.
 
 use ifc_lite_export::{build_export_model_with_options, ExportModel, ModelOptions};
 use ifc_lite_processing::{
@@ -33,6 +36,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
 use std::collections::HashSet;
 
+mod alignment_axes;
 mod swept_disks;
 
 struct GeometryExportResult {
@@ -393,6 +397,7 @@ fn ifclite_geom(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(geometry_data_buffers, m)?)?;
     m.add_function(wrap_pyfunction!(geometry_data_json, m)?)?;
     m.add_function(wrap_pyfunction!(entity_data, m)?)?;
+    m.add_function(wrap_pyfunction!(alignment_axes::alignment_axes, m)?)?;
     m.add("__doc__", "Native ifc-lite geometry and attribute export for Python.")?;
     Ok(())
 }
