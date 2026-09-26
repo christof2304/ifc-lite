@@ -771,6 +771,49 @@ fn test_trimmed_circle_3d_placement_reads_ref_direction() {
     );
 }
 
+/// Profile arcs on a circle whose `IfcAxis2Placement3D` Axis points down
+/// (0,0,-1) run clockwise in plan (FreeCAD writes composite profiles that
+/// way). The trimmed half circle 0°→180° from (1,0) must pass through (0,-1),
+/// not (0,1): the profile is the lower half disc, so the extrusion stays at
+/// y ≤ 0. Mirroring the arc put it above the chord, and the composite curve's
+/// segments no longer met.
+#[test]
+fn test_profile_arc_on_downward_axis_runs_clockwise() {
+    let content = r#"
+#1=IFCCARTESIANPOINT((0.,0.,0.));
+#2=IFCDIRECTION((0.,0.,-1.));
+#3=IFCDIRECTION((1.,0.,0.));
+#4=IFCAXIS2PLACEMENT3D(#1,#2,#3);
+#5=IFCCIRCLE(#4,1.);
+#6=IFCTRIMMEDCURVE(#5,(IFCPARAMETERVALUE(0.)),(IFCPARAMETERVALUE(3.14159265358979)),.T.,.PARAMETER.);
+#7=IFCCOMPOSITECURVESEGMENT(.CONTINUOUS.,.T.,#6);
+#8=IFCCARTESIANPOINT((-1.,0.));
+#9=IFCCARTESIANPOINT((1.,0.));
+#10=IFCPOLYLINE((#8,#9));
+#11=IFCCOMPOSITECURVESEGMENT(.CONTINUOUS.,.T.,#10);
+#12=IFCCOMPOSITECURVE((#7,#11),.F.);
+#13=IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,#12);
+#14=IFCDIRECTION((0.,0.,1.));
+#15=IFCAXIS2PLACEMENT3D(#1,$,$);
+#16=IFCEXTRUDEDAREASOLID(#13,#15,#14,1.);
+"#;
+
+    let mut decoder = EntityDecoder::new(content);
+    let schema = IfcSchema::new();
+    let processor = ExtrudedAreaSolidProcessor::new(schema.clone());
+
+    let entity = decoder.decode_by_id(16).unwrap();
+    let mesh = processor.process(&entity, &mut decoder, &schema, TessellationQuality::Medium).unwrap();
+    assert!(!mesh.is_empty());
+    let (min, max) = mesh.bounds();
+    assert!(max.y < 0.01, "arc must bulge to -Y (clockwise), got max.y={}", max.y);
+    assert!((min.y + 1.0).abs() < 0.01, "arc must reach y=-1, got min.y={}", min.y);
+    let area = mesh_surface_area(&mesh);
+    // two half discs (π/2 each) + curved side (π·1) + flat side (2·1)
+    let expected = std::f64::consts::PI * 2.0 + 2.0;
+    assert!((area - expected).abs() < 0.05, "area {} vs {}", area, expected);
+}
+
 #[test]
 fn test_extruded_area_solid_tapered_falls_back_when_end_missing() {
     // A malformed file with no EndSweptArea should still render as a uniform

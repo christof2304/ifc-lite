@@ -4,7 +4,7 @@
 
 use super::ProfileProcessor;
 use crate::profile::Profile2D;
-use crate::{Error, Result};
+use crate::{Error, Point2, Result};
 use ifc_lite_core::{AttributeValue, DecodedEntity, EntityDecoder, IfcType};
 
 impl ProfileProcessor {
@@ -208,5 +208,93 @@ impl ProfileProcessor {
         }
 
         Ok(Some((x / len, y / len)))
+    }
+
+    /// Centre, in-plane rotation of the local X axis, and the sign of the
+    /// local Y axis of a conic's placement. An `IfcAxis2Placement3D` whose
+    /// Axis points down (0,0,-1) has Y = Axis × X = −(Z × X): the conic's
+    /// parameter runs clockwise in plan. FreeCAD writes profile arcs that way;
+    /// ignoring it mirrored every such arc about its RefDirection, so the
+    /// trimmed segments of a composite profile no longer met.
+    pub(super) fn get_placement_2d(
+        &self,
+        entity: &DecodedEntity,
+        decoder: &mut EntityDecoder,
+    ) -> Result<(Point2<f64>, f64, f64)> {
+        let placement_attr = match entity.get(0) {
+            Some(attr) if !attr.is_null() => attr,
+            _ => return Ok((Point2::new(0.0, 0.0), 0.0, 1.0)),
+        };
+
+        let placement = match decoder.resolve_ref(placement_attr)? {
+            Some(p) => p,
+            None => return Ok((Point2::new(0.0, 0.0), 0.0, 1.0)),
+        };
+
+        let location_attr = placement.get(0);
+        let center = if let Some(loc_attr) = location_attr {
+            if let Some(loc) = decoder.resolve_ref(loc_attr)? {
+                let coords = loc.get(0).and_then(|v| v.as_list());
+                if let Some(coords) = coords {
+                    let x = coords.first().and_then(|v| v.as_float()).unwrap_or(0.0);
+                    let y = coords.get(1).and_then(|v| v.as_float()).unwrap_or(0.0);
+                    Point2::new(x, y)
+                } else {
+                    Point2::new(0.0, 0.0)
+                }
+            } else {
+                Point2::new(0.0, 0.0)
+            }
+        } else {
+            Point2::new(0.0, 0.0)
+        };
+
+        // RefDirection lives at attribute index 1 on IfcAxis2Placement2D, but at
+        // index 2 on IfcAxis2Placement3D (index 1 is the Z-Axis there). Reading
+        // attribute 1 unconditionally produced a rotation of 0° for any conic
+        // anchored to a 3D placement — fine for Z-up profiles but visibly wrong
+        // when the X axis is rotated in-plane. Trimmed circles authored with
+        // `IfcAxis2Placement3D` (e.g. Revit reinforcement bars in Rebar2.ifc,
+        // issue #631) all came out with their arc centres rotated by their
+        // RefDirection angle, distorting the directrix.
+        let ref_dir_attr_index = if placement.ifc_type == IfcType::IfcAxis2Placement3D {
+            2
+        } else {
+            1
+        };
+        let rotation = if let Some(dir_attr) = placement.get(ref_dir_attr_index) {
+            if let Some(dir) = decoder.resolve_ref(dir_attr)? {
+                let ratios = dir.get(0).and_then(|v| v.as_list());
+                if let Some(ratios) = ratios {
+                    let x = ratios.first().and_then(|v| v.as_float()).unwrap_or(1.0);
+                    let y = ratios.get(1).and_then(|v| v.as_float()).unwrap_or(0.0);
+                    y.atan2(x)
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+
+        let y_sign = if placement.ifc_type == IfcType::IfcAxis2Placement3D {
+            match placement.get(1).map(|a| decoder.resolve_ref(a)).transpose()?.flatten() {
+                Some(axis) => {
+                    let z = axis
+                        .get(0)
+                        .and_then(|v| v.as_list())
+                        .and_then(|r| r.get(2).and_then(|v| v.as_float()))
+                        .unwrap_or(1.0);
+                    if z < 0.0 { -1.0 } else { 1.0 }
+                }
+                None => 1.0,
+            }
+        } else {
+            1.0
+        };
+
+        Ok((center, rotation, y_sign))
     }
 }
