@@ -33,10 +33,11 @@ use ifc_lite_processing::{
 };
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList};
+use pyo3::types::{PyDict, PyList};
 use std::collections::HashSet;
 
 mod alignment_axes;
+mod element_buffers;
 mod swept_disks;
 
 struct GeometryExportResult {
@@ -140,29 +141,7 @@ fn geometry_data_buffers(
 
     let els = PyDict::new(py);
     for (id, el) in &export.meshes.elements {
-        let d = PyDict::new(py);
-        d.set_item("ifc_type", &el.ifc_type)?;
-        // Mirror the JSON path so both exports carry the same identity fields;
-        // `None` maps to Python `None` (key always present).
-        d.set_item("global_id", el.global_id.clone())?;
-        d.set_item("name", el.name.clone())?;
-        d.set_item("color", el.color.to_vec())?;
-        // Reinterpret the contiguous `[f64;3]` / `[u32;3]` vecs as little-endian
-        // bytes (zero-copy; PyBytes copies into Python). Targets are all LE.
-        let vbytes: &[u8] = unsafe {
-            std::slice::from_raw_parts(
-                el.vertices.as_ptr() as *const u8,
-                std::mem::size_of_val(el.vertices.as_slice()),
-            )
-        };
-        let fbytes: &[u8] = unsafe {
-            std::slice::from_raw_parts(
-                el.faces.as_ptr() as *const u8,
-                std::mem::size_of_val(el.faces.as_slice()),
-            )
-        };
-        d.set_item("vertices", PyBytes::new(py, vbytes))?;
-        d.set_item("faces", PyBytes::new(py, fbytes))?;
+        let d = element_buffers::element_dict(py, el)?;
         els.set_item(*id, d)?;
     }
     out.set_item("elements", els)?;

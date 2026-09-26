@@ -45,6 +45,14 @@ pub struct ExportedElement {
     pub faces: Vec<[u32; 3]>,
     /// RGBA in 0..1 (first submesh's colour when an element has several).
     pub color: [f32; 4],
+    /// Distinct submesh colours when the element has more than one (a window's
+    /// frame and glass, a bearing's steel and elastomer); empty otherwise.
+    /// Not serialized, so the JSON document is unchanged.
+    #[serde(skip)]
+    pub palette: Vec<[f32; 4]>,
+    /// Per face, the index into `palette`; empty when `palette` is.
+    #[serde(skip)]
+    pub face_colors: Vec<u16>,
 }
 
 /// Top-level geometry-data document. Serializes to the `ifc-lite-geometry-data`
@@ -123,11 +131,23 @@ pub fn build_geometry_data_export(
                 vertices: Vec::new(),
                 faces: Vec::new(),
                 color: m.color,
+                palette: vec![m.color],
+                face_colors: Vec::new(),
             });
 
         // Merge this submesh: rebase its face indices onto the element's
         // accumulated vertex list.
         let base = entry.vertices.len() as u32;
+        let slot = match entry.palette.iter().position(|c| *c == m.color) {
+            Some(i) => i,
+            None => {
+                entry.palette.push(m.color);
+                entry.palette.len() - 1
+            }
+        } as u16;
+        entry
+            .face_colors
+            .extend(std::iter::repeat_n(slot, m.indices.len() / 3));
         entry.vertices.extend_from_slice(&verts);
         entry.faces.extend(
             m.indices
@@ -141,9 +161,15 @@ pub fn build_geometry_data_export(
     // reads as "open". Merging by position (1 um grid) yields a properly
     // indexed solid so closed-mesh consumers (volume, watertightness) work.
     for el in elements.values_mut() {
-        let (v, f) = weld_positions(&el.vertices, &el.faces, 1.0e-6);
+        let (v, f, kept) = weld_positions(&el.vertices, &el.faces, 1.0e-6);
         el.vertices = v;
         el.faces = f;
+        if el.palette.len() > 1 {
+            el.face_colors = kept.iter().map(|&i| el.face_colors[i]).collect();
+        } else {
+            el.palette.clear();
+            el.face_colors.clear();
+        }
     }
 
     let element_count = elements.len();
@@ -159,12 +185,13 @@ pub fn build_geometry_data_export(
 }
 
 /// Merge coincident vertices on a `1/eps` grid and remap faces, dropping any
-/// triangle that collapses to a degenerate after the merge.
+/// triangle that collapses to a degenerate after the merge. Also returns the
+/// input index of every kept face, so per-face data can follow.
 fn weld_positions(
     verts: &[[f64; 3]],
     faces: &[[u32; 3]],
     eps: f64,
-) -> (Vec<[f64; 3]>, Vec<[u32; 3]>) {
+) -> (Vec<[f64; 3]>, Vec<[u32; 3]>, Vec<usize>) {
     let inv = 1.0 / eps;
     let key = |v: &[f64; 3]| -> (i64, i64, i64) {
         (
@@ -185,7 +212,8 @@ fn weld_positions(
         remap.push(idx);
     }
     let mut out_faces: Vec<[u32; 3]> = Vec::with_capacity(faces.len());
-    for f in faces {
+    let mut kept: Vec<usize> = Vec::with_capacity(faces.len());
+    for (i, f) in faces.iter().enumerate() {
         let (a, b, c) = (
             remap[f[0] as usize],
             remap[f[1] as usize],
@@ -193,9 +221,10 @@ fn weld_positions(
         );
         if a != b && b != c && a != c {
             out_faces.push([a, b, c]);
+            kept.push(i);
         }
     }
-    (out_verts, out_faces)
+    (out_verts, out_faces, kept)
 }
 
 impl GeometryDataExport {
